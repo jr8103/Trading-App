@@ -6,3 +6,4 @@ scikit-learn
 streamlit
 plotly
 ta
+pandas_ta
