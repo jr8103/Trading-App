@@ -1,7 +1,8 @@
 import plotly.graph_objects as go
 import dateutil
-import pandas_ta as pta
 import datetime
+
+# ❌ removed: import pandas_ta as pta
 
 def plotly_table(dataframe):
     headerColor='grey'
@@ -21,6 +22,7 @@ def plotly_table(dataframe):
     fig.update_layout(height=400,margin=dict(l=0,r=0,t=0,b=0))
     return fig
 
+
 def filter_data(dataframe,num_period):
     if num_period == '1mo':
         date = dataframe.index[-1]+dateutil.relativedelta.relativedelta(months=-1)
@@ -38,6 +40,7 @@ def filter_data(dataframe,num_period):
         date=dataframe.index[0]
 
     return dataframe.reset_index()[dataframe.reset_index()['Date']>=date]
+
 
 def close_chart(dataframe,num_period=False):
     if num_period:
@@ -57,11 +60,9 @@ def close_chart(dataframe,num_period=False):
                                 name='Low',line=dict(width=2,color='red')))
     
     fig.update_xaxes(rangeslider_visible=True)
-    fig.update_layout(height =500,margin=dict(l=0,r=20,t=20,b=0),plot_bgcolor='white',paper_bgcolor='#e1efff',legend=dict(
-        yanchor='top',
-        xanchor='right'
-    ))
+    fig.update_layout(height =500,margin=dict(l=0,r=20,t=20,b=0),plot_bgcolor='white',paper_bgcolor='#e1efff')
     return fig
+
 
 def candlestick(dataframe,num_period):
     dataframe=filter_data(dataframe,num_period)
@@ -76,116 +77,75 @@ def candlestick(dataframe,num_period):
     fig.update_layout(showlegend=False,height=500,margin=dict(l=0,r=20,t=20,b=0),plot_bgcolor='white',paper_bgcolor='#e1efff')
     return fig
 
+
+# ✅ RSI (Manual)
 def RSI(dataframe,num_period):
-    dataframe['RSI']=pta.rsi(dataframe['Close'])
+    delta = dataframe['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    rs = gain / loss
+    dataframe['RSI'] = 100 - (100 / (1 + rs))
+
     dataframe=filter_data(dataframe,num_period)
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=dataframe['Date'],y=dataframe['RSI'],
                              mode='lines',
                              name='RSI',line=dict(width=2,color='#0078ff')))
-    fig.add_trace(go.Scatter(
-        x=dataframe['Date'],
-        y=[70] * len(dataframe),name='Overbought',marker_color='red',line=dict(width=2,color='red',dash='dash'),
-        ))
-    fig.add_trace(go.Scatter(
-        x=dataframe['Date'],
-        y=[30] * len(dataframe),fill='tonexty',name='Oversold',marker_color='#79da84    ',line=dict(width=2,color='#79da84    ',dash='dash'),
-        ))
-    fig.update_layout(yaxis_range=[0,100],
-                      height=200, plot_bgcolor='white',paper_bgcolor='#e1efff',margin=dict(l=0,r=0,t=0,b=0),legend=dict(orientation='h',yanchor='top',y=1.02,xanchor='right',x=1
-                     ))
+    fig.add_trace(go.Scatter(x=dataframe['Date'],y=[70]*len(dataframe),
+                             name='Overbought',line=dict(width=2,color='red',dash='dash')))
+    fig.add_trace(go.Scatter(x=dataframe['Date'],y=[30]*len(dataframe),
+                             fill='tonexty',name='Oversold',
+                             line=dict(width=2,color='#79da84',dash='dash')))
+    fig.update_layout(yaxis_range=[0,100],height=200,plot_bgcolor='white',paper_bgcolor='#e1efff')
     return fig
+
+
+# ✅ SMA (Manual)
 def Moving_average(dataframe,num_period):
-    dataframe['SMA_50']=pta.sma(dataframe['Close'],50)
+    dataframe['SMA_50'] = dataframe['Close'].rolling(window=50).mean()
+
     dataframe=filter_data(dataframe,num_period)
     fig = go.Figure()
-    
-    fig.add_trace(go.Scatter(x=dataframe['Date'],y=dataframe['Open'],
-                             mode='lines',
-                             name='Open',line=dict(width=2,color='#5ab7ff')))
     fig.add_trace(go.Scatter(x=dataframe['Date'],y=dataframe['Close'],
-                             mode='lines',
-                                name='Close',line=dict(width=2,color='black')))
-    fig.add_trace(go.Scatter(x=dataframe['Date'],y=dataframe['High'],
-                             mode='lines',
-                             name='High',line=dict(width=2,color='#0078ff')))    
-    fig.add_trace(go.Scatter(x=dataframe['Date'],y=dataframe['Low'],
-                             mode='lines',
-                                name='Low',line=dict(width=2,color='red')))
+                             mode='lines',name='Close',line=dict(width=2,color='black')))
     fig.add_trace(go.Scatter(x=dataframe['Date'],y=dataframe['SMA_50'],
-                             mode='lines',  
-                                name='SMA_50',line=dict(width=2,color='purple')))
-    
+                             mode='lines',name='SMA_50',line=dict(width=2,color='purple')))
     fig.update_xaxes(rangeslider_visible=True)
-    fig.update_layout(height =500,margin=dict(l=0,r=20,t=20,b=0),plot_bgcolor='white',paper_bgcolor='#e1efff',legend=dict(
-        yanchor='top',
-        xanchor='right'
-    ))
+    fig.update_layout(height=500,plot_bgcolor='white',paper_bgcolor='#e1efff')
     return fig
 
+
+# ✅ MACD (Manual)
 def MACD(dataframe,num_period):
-    macd=pta.macd(dataframe['Close']).iloc[:,0]
-    macd_signal=pta.macd(dataframe['Close']).iloc[:,1]
-    macd_hist=pta.macd(dataframe['Close']).iloc[:,2]
-    dataframe['MACD']=macd
-    dataframe['MACD_signal']=macd_signal
-    dataframe['MACD_hist']=macd_hist
+    exp1 = dataframe['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = dataframe['Close'].ewm(span=26, adjust=False).mean()
+
+    dataframe['MACD'] = exp1 - exp2
+    dataframe['MACD_signal'] = dataframe['MACD'].ewm(span=9, adjust=False).mean()
+
     dataframe=filter_data(dataframe,num_period)
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=dataframe['Date'],
-        y=dataframe['MACD'],name='RSI',marker_color='orange',line=dict(width=2,color='orange'),
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=dataframe['Date'],
-        y=dataframe['MACD_signal'],name='Overbought',marker_color='red',line=dict(width=2,color='red',dash='dash'),
-    ))
-
-    c=['red' if cl<0 else 'green' for cl in macd_hist]     
-    fig.update_layout(
-        height=200,plot_bgcolor='white',paper_bgcolor='#e1efff',margin=dict(l=0,r=0,t=0,b=0),legend=dict(orientation='h',yanchor='top',y=1.02,xanchor='right',x=1
-                     ))
+    fig.add_trace(go.Scatter(x=dataframe['Date'],y=dataframe['MACD'],
+                             name='MACD',line=dict(color='orange')))
+    fig.add_trace(go.Scatter(x=dataframe['Date'],y=dataframe['MACD_signal'],
+                             name='Signal',line=dict(color='red',dash='dash')))
+    fig.update_layout(height=200,plot_bgcolor='white',paper_bgcolor='#e1efff')
     return fig
+
 
 def Moving_average_forecast(forecast):
     fig = go.Figure()
+    n = 30
 
-    n = 30  # forecast length
-
-    # Ensure we have enough data
     if len(forecast) <= n:
         n = int(len(forecast) / 2)
 
-    # Actual data (black line)
-    fig.add_trace(go.Scatter(
-        x=forecast.index[:-n],
-        y=forecast['Close'].iloc[:-n],
-        mode='lines',
-        name='Close Price',
-        line=dict(width=2, color='black')
-    ))
-
-    # Forecast data (red dashed)
-    fig.add_trace(go.Scatter(
-        x=forecast.index[-n:],
-        y=forecast['Close'].iloc[-n:],
-        mode='lines',
-        name='Future Close Price',
-        line=dict(width=2, color='red', dash='dash')
-    ))
+    fig.add_trace(go.Scatter(x=forecast.index[:-n],y=forecast['Close'].iloc[:-n],
+                             mode='lines',name='Close Price',line=dict(color='black')))
+    fig.add_trace(go.Scatter(x=forecast.index[-n:],y=forecast['Close'].iloc[-n:],
+                             mode='lines',name='Future Close Price',
+                             line=dict(color='red',dash='dash')))
 
     fig.update_xaxes(rangeslider_visible=True)
-
-    fig.update_layout(
-        height=500,
-        margin=dict(l=0, r=20, t=20, b=0),
-        plot_bgcolor='white',
-        paper_bgcolor='#e1efff',
-        legend=dict(
-            yanchor='top',
-            xanchor='right'
-        )
-    )
-
+    fig.update_layout(height=500,plot_bgcolor='white',paper_bgcolor='#e1efff')
     return fig
