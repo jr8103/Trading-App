@@ -58,9 +58,34 @@ with col2:
 data=yf.download(ticker,start=start_date,end=end_date)
 
 col1,col2,col3 = st.columns(3)
-latest = float(data['Close'].iloc[-1])
-previous = float(data['Close'].iloc[-2])
+if data is None or data.empty:
+    st.error("No data found for this ticker or date range.")
+else:
+    # Fix multi-index issue (important for yfinance)
+    data.columns = [col[0] if isinstance(col, tuple) else col for col in data.columns]
 
+    if 'Close' not in data.columns:
+        st.error("Close price not available.")
+    elif len(data) < 2:
+        st.error("Not enough data to calculate daily change.")
+    else:
+        latest = data['Close'].iloc[-1]
+        previous = data['Close'].iloc[-2]
+
+        if pd.isna(latest) or pd.isna(previous):
+            st.error("Price data contains missing values.")
+        else:
+            latest = float(latest)
+            previous = float(previous)
+
+            daily_change = latest - previous
+            percent = (daily_change / previous) * 100
+
+            col1.metric(
+                "Daily Change",
+                f"{latest:.2f}",
+                f"{daily_change:.2f} ({percent:.2f}%)"
+            )
 daily_change = latest - previous
 percent = (daily_change / previous) * 100
 
